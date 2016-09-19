@@ -1,12 +1,12 @@
 package socks5
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
-
-	"golang.org/x/net/context"
 )
 
 const (
@@ -54,6 +54,13 @@ func (a *AddrSpec) String() string {
 	return fmt.Sprintf("%s:%d", a.IP, a.Port)
 }
 
+func (a *AddrSpec) Address() string {
+	if len(a.IP) > 0 {
+		return net.JoinHostPort(a.IP.String(), strconv.Itoa(a.Port))
+	}
+	return net.JoinHostPort(a.FQDN, strconv.Itoa(a.Port))
+}
+
 // A Request represents request received by a server
 type Request struct {
 	// Protocol version
@@ -74,6 +81,10 @@ type Request struct {
 type conn interface {
 	Write([]byte) (int, error)
 	RemoteAddr() net.Addr
+}
+
+type closeWriter interface {
+	CloseWrite() error
 }
 
 // NewRequest creates a new Request from the tcp connection
@@ -158,14 +169,13 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	}
 
 	// Attempt to connect
-	addr := (&net.TCPAddr{IP: req.realDestAddr.IP, Port: req.realDestAddr.Port}).String()
 	dial := s.config.Dial
 	if dial == nil {
 		dial = func(ctx context.Context, net_, addr string) (net.Conn, error) {
 			return net.Dial(net_, addr)
 		}
 	}
-	target, err := dial(ctx, "tcp", addr)
+	target, err := dial(ctx, "tcp", req.realDestAddr.Address())
 	if err != nil {
 		msg := err.Error()
 		resp := hostUnreachable
@@ -344,7 +354,7 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 // down a dedicated channel
 func proxy(dst io.Writer, src io.Reader, errCh chan error) {
 	_, err := io.Copy(dst, src)
-	if tcpConn, ok := dst.(*net.TCPConn); ok {
+	if tcpConn, ok := dst.(closeWriter); ok {
 		tcpConn.CloseWrite()
 	}
 	errCh <- err
