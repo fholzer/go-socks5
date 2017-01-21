@@ -117,7 +117,7 @@ func NewRequest(bufConn io.Reader) (*Request, error) {
 }
 
 // handleRequest is used for request processing after authentication
-func (s *Server) handleRequest(req *Request, conn conn) error {
+func (s *Server) handleRequest(req *Request, conn conn) (context.Context, error) {
 	ctx := context.Background()
 
 	// Resolve the address if we have a FQDN
@@ -126,9 +126,9 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 		ctx_, addr, err := s.config.Resolver.Resolve(ctx, dest.FQDN)
 		if err != nil {
 			if err := sendReply(conn, hostUnreachable, nil); err != nil {
-				return fmt.Errorf("Failed to send reply: %v", err)
+				return ctx, fmt.Errorf("Failed to send reply: %v", err)
 			}
-			return fmt.Errorf("Failed to resolve destination '%v': %v", dest.FQDN, err)
+			return ctx, fmt.Errorf("Failed to resolve destination '%v': %v", dest.FQDN, err)
 		}
 		ctx = ctx_
 		dest.IP = addr
@@ -150,20 +150,20 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 		return s.handleAssociate(ctx, conn, req)
 	default:
 		if err := sendReply(conn, commandNotSupported, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
+			return ctx, fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Unsupported command: %v", req.Command)
+		return ctx, fmt.Errorf("Unsupported command: %v", req.Command)
 	}
 }
 
 // handleConnect is used to handle a connect command
-func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) error {
+func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (context.Context, error) {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
+			return ctx, fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Connect to %v blocked by rules", req.DestAddr)
+		return ctx, fmt.Errorf("Connect to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
@@ -185,9 +185,9 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 			resp = networkUnreachable
 		}
 		if err := sendReply(conn, resp, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
+			return ctx, fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
+		return ctx, fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
 	}
 	defer target.Close()
 
@@ -195,61 +195,73 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	local := target.LocalAddr().(*net.TCPAddr)
 	bind := AddrSpec{IP: local.IP, Port: local.Port}
 	if err := sendReply(conn, successReply, &bind); err != nil {
-		return fmt.Errorf("Failed to send reply: %v", err)
+		return ctx, fmt.Errorf("Failed to send reply: %v", err)
 	}
 
 	// Start proxying
 	errCh := make(chan error, 2)
-	go proxy(target, req.bufConn, errCh)
-	go proxy(conn, target, errCh)
+	sizeCh := make(chan int64, 2)
+	go proxy(target, req.bufConn, errCh, sizeCh)
+	go proxy(conn, target, errCh, sizeCh)
+
+	// Setup ctx value for finalizer read
+	ctx = context.WithValue(ctx, "request_byte", <-sizeCh)
+	ctx = context.WithValue(ctx, "response_byte", <-sizeCh)
+	user := "-"
+	if val, ok := req.AuthContext.Payload["Username"]; ok {
+		user = val
+	}
+	ctx = context.WithValue(ctx, "username", user)
+	ctx = context.WithValue(ctx, "raddr", req.RemoteAddr.String())
+	ctx = context.WithValue(ctx, "daddr", req.DestAddr.String())
 
 	// Wait
 	for i := 0; i < 2; i++ {
 		e := <-errCh
 		if e != nil {
 			// return from this function closes target (and conn).
-			return e
+			return ctx, e
 		}
 	}
-	return nil
+	return ctx, nil
 }
 
 // handleBind is used to handle a connect command
-func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) error {
+func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) (context.Context, error) {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
+			return ctx, fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Bind to %v blocked by rules", req.DestAddr)
+		return ctx, fmt.Errorf("Bind to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
 
 	// TODO: Support bind
 	if err := sendReply(conn, commandNotSupported, nil); err != nil {
-		return fmt.Errorf("Failed to send reply: %v", err)
+		return ctx, fmt.Errorf("Failed to send reply: %v", err)
 	}
-	return nil
+	return ctx, nil
 }
 
 // handleAssociate is used to handle a connect command
-func (s *Server) handleAssociate(ctx context.Context, conn conn, req *Request) error {
+func (s *Server) handleAssociate(ctx context.Context, conn conn, req *Request) (context.Context, error) {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
+			return ctx, fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Associate to %v blocked by rules", req.DestAddr)
+		return ctx, fmt.Errorf("Associate to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
 
 	// TODO: Support associate
 	if err := sendReply(conn, commandNotSupported, nil); err != nil {
-		return fmt.Errorf("Failed to send reply: %v", err)
+		return ctx, fmt.Errorf("Failed to send reply: %v", err)
 	}
-	return nil
+	return ctx, nil
 }
 
 // readAddrSpec is used to read AddrSpec.
@@ -352,7 +364,7 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 
 // proxy is used to suffle data from src to destination, and sends errors
 // down a dedicated channel
-func proxy(dst io.Writer, src io.Reader, errCh chan error) {
+func proxy(dst io.Writer, src io.Reader, errCh chan error, sizeCh chan int64) {
 	// 	_, err := io.Copy(dst, src)
 	// 	if tcpConn, ok := dst.(closeWriter); ok {
 	// 		tcpConn.CloseWrite()
@@ -360,8 +372,11 @@ func proxy(dst io.Writer, src io.Reader, errCh chan error) {
 	// 	errCh <- err
 
 	var err error
+	var size, n int64
 	for {
-		_, err = io.CopyN(dst, src, 16*1024)
+		n, err = io.CopyN(dst, src, 16*1024)
+		size += n
+		n = 0
 		if err != nil {
 			break
 		}
@@ -372,5 +387,7 @@ func proxy(dst io.Writer, src io.Reader, errCh chan error) {
 	if tcpConn, ok := dst.(closeWriter); ok {
 		tcpConn.CloseWrite()
 	}
+
 	errCh <- err
+	sizeCh <- size
 }

@@ -42,6 +42,9 @@ type Config struct {
 	// BindIP is used for bind or udp associate
 	BindIP net.IP
 
+	// Finalizer is used for complete connection and logging something
+	Finalizer Finalizer
+
 	// Logger can be used to provide a custom log target.
 	// Defaults to stdout.
 	Logger *log.Logger
@@ -81,6 +84,11 @@ func New(conf *Config) (*Server, error) {
 	// Ensure we have a log target
 	if conf.Logger == nil {
 		conf.Logger = log.New(os.Stdout, "", log.LstdFlags)
+	}
+
+	// Ensure we have a finalizer
+	if conf.Finalizer == nil {
+		conf.Finalizer = &LogFinalizer{conf.Logger}
 	}
 
 	server := &Server{
@@ -159,7 +167,11 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 
 	// Process the client request
-	if err := s.handleRequest(request, conn); err != nil {
+	ctx, err := s.handleRequest(request, conn)
+	if s.config.Finalizer != nil {
+		s.config.Finalizer.Finalize(ctx)
+	}
+	if err != nil {
 		err = fmt.Errorf("Failed to handle request: %v", err)
 		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err
