@@ -78,6 +78,10 @@ type Request struct {
 	bufConn      io.Reader
 }
 
+func (r *Request) RealDestAddr() *AddrSpec {
+	return r.realDestAddr
+}
+
 type conn interface {
 	Write([]byte) (int, error)
 	RemoteAddr() net.Addr
@@ -170,6 +174,9 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 
 	// Attempt to connect
 	dial := s.config.Dial
+	if s.config.Picker != nil {
+		dial = s.config.Picker.Pick(req)
+	}
 	if dial == nil {
 		dial = func(ctx context.Context, net_, addr string) (net.Conn, error) {
 			return net.Dial(net_, addr)

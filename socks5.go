@@ -51,6 +51,9 @@ type Config struct {
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	// Dial picker
+	Picker Picker
 }
 
 // Server is reponsible for accepting connections and handling
