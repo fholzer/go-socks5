@@ -173,6 +173,9 @@ func (s *Server) handleRequest(req *Request, conn conn) (context.Context, error)
 
 // handleConnect is used to handle a connect command
 func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (context.Context, error) {
+	defer func() {
+		req.FinishTime = time.Now()
+	}()
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
@@ -225,7 +228,6 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 	// Setup req value for finalizer read
 	req.ReqByte = <-sizeCh
 	req.RespByte = <-sizeCh
-	req.FinishTime = time.Now()
 
 	// Wait
 	for i := 0; i < 2; i++ {
