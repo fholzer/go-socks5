@@ -14,6 +14,6 @@ type LogFinalizer struct {
 	log *log.Logger
 }
 
-func (l *LogFinalizer) Finalize(request Request, conn net.Conn, ctx context.Context) error {
+func (l *LogFinalizer) Finalize(request *Request, conn net.Conn, ctx context.Context) error {
 	return nil
 }
