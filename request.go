@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -75,7 +76,15 @@ type Request struct {
 	DestAddr *AddrSpec
 	// AddrSpec of the actual destination (might be affected by rewrite)
 	realDestAddr *AddrSpec
-	bufConn      io.Reader
+	// Start Time
+	StartTime time.Time
+	// Resolve Time
+	ResolveTime time.Time
+	// Finish Time
+	FinishTime time.Time
+	ReqByte    int64
+	RespByte   int64
+	bufConn    io.Reader
 }
 
 func (r *Request) RealDestAddr() *AddrSpec {
@@ -111,10 +120,11 @@ func NewRequest(bufConn io.Reader) (*Request, error) {
 	}
 
 	request := &Request{
-		Version:  socks5Version,
-		Command:  header[1],
-		DestAddr: dest,
-		bufConn:  bufConn,
+		Version:   socks5Version,
+		Command:   header[1],
+		DestAddr:  dest,
+		StartTime: time.Now(),
+		bufConn:   bufConn,
 	}
 
 	return request, nil
@@ -137,6 +147,7 @@ func (s *Server) handleRequest(req *Request, conn conn) (context.Context, error)
 		ctx = ctx_
 		dest.IP = addr
 	}
+	req.ResolveTime = time.Now()
 
 	// Apply any address rewrites
 	req.realDestAddr = req.DestAddr
@@ -211,16 +222,10 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 	go proxy(target, req.bufConn, errCh, sizeCh)
 	go proxy(conn, target, errCh, sizeCh)
 
-	// Setup ctx value for finalizer read
-	ctx = context.WithValue(ctx, "request_byte", <-sizeCh)
-	ctx = context.WithValue(ctx, "response_byte", <-sizeCh)
-	user := "-"
-	if val, ok := req.AuthContext.Payload["Username"]; ok {
-		user = val
-	}
-	ctx = context.WithValue(ctx, "username", user)
-	ctx = context.WithValue(ctx, "raddr", req.RemoteAddr.String())
-	ctx = context.WithValue(ctx, "daddr", req.DestAddr.String())
+	// Setup req value for finalizer read
+	req.ReqByte = <-sizeCh
+	req.RespByte = <-sizeCh
+	req.FinishTime = time.Now()
 
 	// Wait
 	for i := 0; i < 2; i++ {

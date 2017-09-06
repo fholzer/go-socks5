@@ -172,7 +172,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	// Process the client request
 	ctx, err := s.handleRequest(request, conn)
 	if s.config.Finalizer != nil {
-		s.config.Finalizer.Finalize(ctx)
+		s.config.Finalizer.Finalize(request, conn, ctx)
 	}
 	if err != nil {
 		err = fmt.Errorf("Failed to handle request: %v", err)
