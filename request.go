@@ -80,6 +80,8 @@ type Request struct {
 	StartTime time.Time
 	// Resolve Time
 	ResolveTime time.Time
+	// Conn Time
+	ConnTime time.Time
 	// Finish Time
 	FinishTime time.Time
 	ReqByte    int64
@@ -211,6 +213,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 		return ctx, fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
 	}
 	defer target.Close()
+	req.ConnTime = time.Now()
 
 	// Send success
 	local := target.LocalAddr().(*net.TCPAddr)
