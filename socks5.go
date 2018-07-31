@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"context"
+
+	"github.com/juju/ratelimit"
 )
 
 const (
@@ -54,6 +56,12 @@ type Config struct {
 
 	// Dial picker
 	Picker Picker
+
+	// Input ratelimit bucket
+	InBucket *ratelimit.Bucket
+
+	// Output ratelimit bucket
+	OutBucket *ratelimit.Bucket
 }
 
 // Server is reponsible for accepting connections and handling

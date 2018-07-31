@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/juju/ratelimit"
 )
 
 const (
@@ -225,8 +227,8 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 	// Start proxying
 	errCh := make(chan error, 2)
 	sizeCh := make(chan int64, 2)
-	go proxy(target, req.bufConn, errCh, sizeCh)
-	go proxy(conn, target, errCh, sizeCh)
+	go proxy(target, req.bufConn, errCh, sizeCh, s.config.InBucket)
+	go proxy(conn, target, errCh, sizeCh, s.config.OutBucket)
 
 	// Setup req value for finalizer read
 	req.ReqByte = <-sizeCh
@@ -381,12 +383,15 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 
 // proxy is used to suffle data from src to destination, and sends errors
 // down a dedicated channel
-func proxy(dst io.Writer, src io.Reader, errCh chan error, sizeCh chan int64) {
+func proxy(dst io.Writer, src io.Reader, errCh chan error, sizeCh chan int64, bucket *ratelimit.Bucket) {
 	// 	_, err := io.Copy(dst, src)
 	// 	if tcpConn, ok := dst.(closeWriter); ok {
 	// 		tcpConn.CloseWrite()
 	// 	}
 	// 	errCh <- err
+	if bucket != nil {
+		src = ratelimit.Reader(src, bucket)
+	}
 
 	var err error
 	var size, n int64
