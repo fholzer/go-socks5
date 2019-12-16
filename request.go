@@ -192,8 +192,10 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 
 	// Attempt to connect
 	dial := s.config.Dial
+	var ctx_ context.Context
 	if s.config.Picker != nil {
-		dial = s.config.Picker.Pick(req)
+		ctx_, dial = s.config.Picker.Pick(req, ctx)
+		ctx = ctx_
 	}
 	if dial == nil {
 		dial = func(ctx context.Context, net_, addr string) (net.Conn, error) {
