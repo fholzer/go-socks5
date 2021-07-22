@@ -43,6 +43,11 @@ func (r *Rule) Match(ip net.IP) bool {
     }
     return false
 }
+
+func (r *Rule) EnrichContext(ctx context.Context) context.Context {
+    return r.forwarder.EnrichContext(ctx);
+}
+
 func (r *Rule) Forward(ctx context.Context, network, addr string) (net.Conn, error) {
     return r.forwarder.Forward(ctx, network, addr);
 }

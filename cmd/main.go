@@ -18,6 +18,9 @@ func (l *LogFinalizer) Finalize(request *socks5.Request, conn net.Conn, ctx cont
 	log.WithFields(log.Fields{
 		"client": request.RemoteAddr,
 		"destination": request.DestAddr,
+		"matchingRuleId": ctx.Value("matchingRuleId"),
+		"proxyType": ctx.Value("proxyType"),
+		"proxyAddress": ctx.Value("proxyAddress"),
 		"requestBytes": request.ReqByte,
 		"responseBytes": request.RespByte,
 	}).Debug("Connection closed.")

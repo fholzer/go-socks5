@@ -11,6 +11,7 @@ import (
 
 type Forwarder interface {
     Forward(ctx context.Context, network, addr string) (net.Conn, error)
+    EnrichContext(ctx context.Context) context.Context
 }
 
 func NewForwarder(cfg *forwarderConfig) (Forwarder, error) {
@@ -27,6 +28,7 @@ func NewForwarder(cfg *forwarderConfig) (Forwarder, error) {
 
 
 type Socks5Forwarder struct {
+    address string
     dialer proxy.Dialer
     log *logrus.Entry
 }
@@ -43,10 +45,18 @@ func NewSocks5Forwarder(cfg *forwarderConfig) (*Socks5Forwarder, error) {
     })
 
     return &Socks5Forwarder{
+        address: cfg.Address,
         dialer: dialer,
         log: log,
     }, nil
 }
+
+func (f *Socks5Forwarder) EnrichContext(ctx context.Context) context.Context {
+    ctx = context.WithValue(ctx, "proxyType", "socks5")
+    ctx = context.WithValue(ctx, "proxyAddress", f.address)
+    return ctx
+}
+
 
 func (f *Socks5Forwarder) Forward(ctx context.Context, network, addr string) (net.Conn, error) {
     if logrus.IsLevelEnabled(logrus.DebugLevel) {
@@ -73,6 +83,11 @@ func NewDirectForwarder() (*DirectForwarder, error) {
     return &DirectForwarder{
         log: log,
     }, nil
+}
+
+func (f *DirectForwarder) EnrichContext(ctx context.Context) context.Context {
+    ctx = context.WithValue(ctx, "proxyType", "direct")
+    return ctx
 }
 
 func (f *DirectForwarder) Forward(ctx context.Context, network, addr string) (net.Conn, error) {
