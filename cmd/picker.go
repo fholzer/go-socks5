@@ -9,15 +9,15 @@ import (
 )
 
 type Picker struct {
-	rules []Rule
+	rules            []Rule
 	defaultForwarder Forwarder
 }
 
-func (p* Picker) Pick(req *socks5.Request, ctx context.Context) (context.Context, func(ctx context.Context, network, addr string) (net.Conn, error)) {
+func (p *Picker) Pick(req *socks5.Request, ctx context.Context) (context.Context, func(ctx context.Context, network, addr string) (net.Conn, error)) {
 	var log *logrus.Entry
 	if logrus.IsLevelEnabled(logrus.TraceLevel) {
 		log = logrus.WithFields(logrus.Fields{
-			"client": req.RemoteAddr,
+			"client":      req.RemoteAddr,
 			"destination": req.DestAddr,
 		})
 		log.Trace("Starting rule processing.")
@@ -26,7 +26,7 @@ func (p* Picker) Pick(req *socks5.Request, ctx context.Context) (context.Context
 	ctx = context.WithValue(ctx, "clientAddr", req.RemoteAddr)
 
 	for i, rule := range p.rules {
-		if(rule.Match(req.DestAddr.IP)) {
+		if rule.Match(req.DestAddr.IP) {
 			if log != nil {
 				log.WithField("matchingRuleId", i).Tracef("Rule %d matches.", i)
 			}

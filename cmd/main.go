@@ -4,10 +4,10 @@ import (
 	"context"
 	"net"
 	"os"
-	
+
 	"github.com/fholzer/go-socks5/pkg/socks5"
 	"github.com/shiena/ansicolor"
-    log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type LogFinalizer struct {
@@ -16,13 +16,13 @@ type LogFinalizer struct {
 
 func (l *LogFinalizer) Finalize(request *socks5.Request, conn net.Conn, ctx context.Context) error {
 	log.WithFields(log.Fields{
-		"client": request.RemoteAddr,
-		"destination": request.DestAddr,
+		"client":         request.RemoteAddr,
+		"destination":    request.DestAddr,
 		"matchingRuleId": ctx.Value("matchingRuleId"),
-		"proxyType": ctx.Value("proxyType"),
-		"proxyAddress": ctx.Value("proxyAddress"),
-		"requestBytes": request.ReqByte,
-		"responseBytes": request.RespByte,
+		"proxyType":      ctx.Value("proxyType"),
+		"proxyAddress":   ctx.Value("proxyAddress"),
+		"requestBytes":   request.ReqByte,
+		"responseBytes":  request.RespByte,
 	}).Debug("Connection closed.")
 	return nil
 }
@@ -32,7 +32,7 @@ const configFileName = "config.yml"
 func setupLogging() {
 	// Log as JSON instead of the default ASCII formatter.
 	log.SetFormatter(&log.TextFormatter{
-	    ForceColors: true,
+		ForceColors:   true,
 		FullTimestamp: true,
 	})
 
@@ -48,7 +48,7 @@ func createSocks5Server(appConfig *Configuration) (*socks5.Server, error) {
 	// Create a SOCKS5 server
 	conf := &socks5.Config{
 		Picker: &Picker{
-			rules: appConfig.Rules,
+			rules:            appConfig.Rules,
 			defaultForwarder: *appConfig.DefaultForwarder,
 		},
 		Finalizer: &LogFinalizer{},
