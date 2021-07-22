@@ -5,6 +5,7 @@ import (
 
     ucfg "github.com/elastic/go-ucfg"
     "github.com/elastic/go-ucfg/yaml"
+    log "github.com/sirupsen/logrus"
 )
 
 type forwarderConfig struct {
@@ -18,12 +19,15 @@ type ruleConfig struct {
 }
 
 type rawConfiguration struct {
+    Loglevel string
+    Logformat string
 	Bind string
 	Rules []ruleConfig
 	DefaultForwarder *forwarderConfig `config:"defaultForwarder"`
 }
 
 type Configuration struct {
+    Loglevel log.Level
 	Bind string
 	Rules []Rule
 	DefaultForwarder *Forwarder
@@ -31,7 +35,9 @@ type Configuration struct {
 
 var (
     defaultConfig = rawConfiguration{
-	    Bind: "127.0.0.1:6767",
+        Loglevel: "info",
+        Logformat: "text",
+	    Bind: "127.0.0.1:5757",
 		Rules: nil,
 		DefaultForwarder: nil,
     }
@@ -40,27 +46,41 @@ var (
 func ParseConfig(filename string) (*Configuration, error) {
     config, err := yaml.NewConfigWithFile(filename, ucfg.PathSep("."))
     if  err != nil {
-        return nil, fmt.Errorf("Fatal error reading config file: %w\n", err)
+        return nil, fmt.Errorf("Fatal error reading config file: %w", err)
     }
 
     appConfig := defaultConfig
     if err := config.Unpack(&appConfig); err != nil {
-        return nil, fmt.Errorf("Unable to parse config file: %v\n", err)
+        return nil, fmt.Errorf("Unable to parse config file: %v", err)
+    }
+
+    loglevel, err := log.ParseLevel(appConfig.Loglevel)
+    if err != nil {
+        return nil, fmt.Errorf("Unable to parse loglevel. %v", err)
+    }
+    log.SetLevel(loglevel)
+
+    switch(appConfig.Logformat) {
+    case "text": // nothing to do here. Text is the default anyway
+    case "json":
+        log.SetFormatter(&log.JSONFormatter{})
+    default:
+        log.Fatalf("Unknown log format: %s", appConfig.Logformat)
     }
 
     if appConfig.DefaultForwarder == nil {
-        return nil, fmt.Errorf("defaultForwarder must be specified in configuration file.");
+        return nil, fmt.Errorf("defaultForwarder must be specified in configuration file.")
     }
 	defaultForwarder, err := NewForwarder(appConfig.DefaultForwarder)
     if err != nil {
-        return nil, fmt.Errorf("Unable to create defaultForwarder: %v\n", err)
+        return nil, fmt.Errorf("Unable to parse defaultForwarder: %v", err)
     }
 
     rules := make([]Rule, len(appConfig.Rules))
     for i, rcfg := range appConfig.Rules {
         rule, err := NewRule(&rcfg)
         if err != nil {
-            return nil, fmt.Errorf("Unable to create rule #%d: %v\n", i, err)
+            return nil, fmt.Errorf("Unable to parse rule #%d: %v", i, err)
         }
         rules[i] = *rule
     }
