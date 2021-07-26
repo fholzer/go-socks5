@@ -5,7 +5,7 @@ import (
 
 	ucfg "github.com/elastic/go-ucfg"
 	"github.com/elastic/go-ucfg/yaml"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type forwarderConfig struct {
@@ -27,7 +27,7 @@ type rawConfiguration struct {
 }
 
 type Configuration struct {
-	Loglevel         log.Level
+	Loglevel         logrus.Level
 	Bind             string
 	Rules            []Rule
 	DefaultForwarder *Forwarder
@@ -54,7 +54,7 @@ func ParseConfig(filename string) (*Configuration, error) {
 		return nil, fmt.Errorf("Unable to parse config file: %v", err)
 	}
 
-	loglevel, err := log.ParseLevel(appConfig.Loglevel)
+	loglevel, err := logrus.ParseLevel(appConfig.Loglevel)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse loglevel. %v", err)
 	}
@@ -63,7 +63,7 @@ func ParseConfig(filename string) (*Configuration, error) {
 	switch appConfig.Logformat {
 	case "text": // nothing to do here. Text is the default anyway
 	case "json":
-		log.SetFormatter(&log.JSONFormatter{})
+		log.SetFormatter(&logrus.JSONFormatter{})
 	default:
 		log.Fatalf("Unknown log format: %s", appConfig.Logformat)
 	}

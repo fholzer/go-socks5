@@ -3,12 +3,11 @@ package socks5
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
-	"os"
 
 	"context"
 
+	"github.com/fholzer/go-socks5/pkg/axe"
 	"github.com/juju/ratelimit"
 )
 
@@ -49,7 +48,7 @@ type Config struct {
 
 	// Logger can be used to provide a custom log target.
 	// Defaults to stdout.
-	Logger *log.Logger
+	Logger axe.Logger
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
@@ -94,7 +93,7 @@ func New(conf *Config) (*Server, error) {
 
 	// Ensure we have a log target
 	if conf.Logger == nil {
-		conf.Logger = log.New(os.Stdout, "", log.LstdFlags)
+		conf.Logger = axe.New()
 	}
 
 	// Ensure we have a finalizer
@@ -144,14 +143,14 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	// Read the version byte
 	version := []byte{0}
 	if _, err := bufConn.Read(version); err != nil {
-		s.config.Logger.Printf("[ERR] socks: Failed to get version byte: %v", err)
+		s.config.Logger.Errorf("socks: Failed to get version byte: %v", err)
 		return err
 	}
 
 	// Ensure we are compatible
 	if version[0] != socks5Version {
 		err := fmt.Errorf("Unsupported SOCKS version: %v", version)
-		s.config.Logger.Printf("[ERR] socks: %v", err)
+		s.config.Logger.Errorf("socks: %v", err)
 		return err
 	}
 
@@ -159,7 +158,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	authContext, err := s.authenticate(conn, bufConn)
 	if err != nil {
 		err = fmt.Errorf("Failed to authenticate: %v", err)
-		s.config.Logger.Printf("[ERR] socks: %v", err)
+		s.config.Logger.Errorf("socks: %v", err)
 		return err
 	}
 
@@ -172,6 +171,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		}
 		return fmt.Errorf("Failed to read destination address: %v", err)
 	}
+	s.config.Logger.Debugf("[INF] new incoming request from %v", conn.RemoteAddr().(*net.TCPAddr))
 	request.AuthContext = authContext
 	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 		request.RemoteAddr = &AddrSpec{IP: client.IP, Port: client.Port}
@@ -184,7 +184,6 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 	if err != nil {
 		err = fmt.Errorf("Failed to handle request: %v", err)
-		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err
 	}
 

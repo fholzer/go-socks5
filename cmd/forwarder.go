@@ -38,7 +38,7 @@ func NewSocks5Forwarder(cfg *forwarderConfig) (*Socks5Forwarder, error) {
 		return nil, err
 	}
 
-	log := logrus.WithFields(logrus.Fields{
+	log := log.WithFields(logrus.Fields{
 		"proxyType":    "socks5",
 		"proxyAddress": cfg.Address,
 	})
@@ -57,7 +57,7 @@ func (f *Socks5Forwarder) EnrichContext(ctx context.Context) context.Context {
 }
 
 func (f *Socks5Forwarder) Forward(ctx context.Context, network, addr string) (net.Conn, error) {
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+	if log.IsLevelEnabled(logrus.DebugLevel) {
 		f.log.WithFields(logrus.Fields{
 			"client":         ctx.Value("clientAddr"),
 			"destination":    addr,
@@ -73,7 +73,7 @@ type DirectForwarder struct {
 }
 
 func NewDirectForwarder() (*DirectForwarder, error) {
-	log := logrus.WithFields(logrus.Fields{
+	log := log.WithFields(logrus.Fields{
 		"proxyType": "direct",
 	})
 
@@ -88,7 +88,7 @@ func (f *DirectForwarder) EnrichContext(ctx context.Context) context.Context {
 }
 
 func (f *DirectForwarder) Forward(ctx context.Context, network, addr string) (net.Conn, error) {
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+	if log.IsLevelEnabled(logrus.DebugLevel) {
 		f.log.WithFields(logrus.Fields{
 			"client":         ctx.Value("clientAddr"),
 			"destination":    addr,

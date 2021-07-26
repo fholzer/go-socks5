@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"log"
 	"net"
-	"os"
 	"testing"
 	"time"
+
+	"github.com/fholzer/go-socks5/pkg/axe"
 )
 
 func TestSOCKS5_Connect(t *testing.T) {
@@ -43,7 +43,7 @@ func TestSOCKS5_Connect(t *testing.T) {
 	cator := UserPassAuthenticator{Credentials: creds}
 	conf := &Config{
 		AuthMethods: []Authenticator{cator},
-		Logger:      log.New(os.Stdout, "", log.LstdFlags),
+		Logger:      axe.New(),
 	}
 	serv, err := New(conf)
 	if err != nil {

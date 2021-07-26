@@ -2,8 +2,9 @@ package socks5
 
 import (
 	"context"
-	"log"
 	"net"
+
+	"github.com/fholzer/go-socks5/pkg/axe"
 )
 
 type Finalizer interface {
@@ -11,7 +12,7 @@ type Finalizer interface {
 }
 
 type LogFinalizer struct {
-	log *log.Logger
+	log axe.Logger
 }
 
 func (l *LogFinalizer) Finalize(request *Request, conn net.Conn, ctx context.Context) error {

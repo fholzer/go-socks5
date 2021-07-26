@@ -2,20 +2,23 @@ package main
 
 import (
 	"context"
+	stdlog "log"
 	"net"
 	"os"
 
 	"github.com/fholzer/go-socks5/pkg/socks5"
 	"github.com/shiena/ansicolor"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
+var log *logrus.Logger
+
 type LogFinalizer struct {
-	log *log.Logger
+	log *logrus.Logger
 }
 
 func (l *LogFinalizer) Finalize(request *socks5.Request, conn net.Conn, ctx context.Context) error {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"client":         request.RemoteAddr,
 		"destination":    request.DestAddr,
 		"matchingRuleId": ctx.Value("matchingRuleId"),
@@ -30,18 +33,25 @@ func (l *LogFinalizer) Finalize(request *socks5.Request, conn net.Conn, ctx cont
 const configFileName = "config.yml"
 
 func setupLogging() {
-	// Log as JSON instead of the default ASCII formatter.
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors:   true,
-		FullTimestamp: true,
-	})
+	log = &logrus.Logger{
+		// Output to stdout instead of the default stderr
+		// Can be any io.Writer, see below for File example
+		Out: ansicolor.NewAnsiColorWriter(os.Stdout),
 
-	// Output to stdout instead of the default stderr
-	// Can be any io.Writer, see below for File example
-	log.SetOutput(ansicolor.NewAnsiColorWriter(os.Stdout))
+		// Log as JSON instead of the default ASCII formatter.
+		Formatter: &logrus.TextFormatter{
+			ForceColors:   true,
+			FullTimestamp: true,
+		},
+		Hooks: make(logrus.LevelHooks),
 
-	// Only log the warning severity or above.
-	log.SetLevel(log.WarnLevel)
+		// Only log the warning severity or above.
+		Level: logrus.InfoLevel,
+	}
+
+	w := logrus.New().Writer()
+	//defer w.Close()
+	stdlog.SetOutput(w)
 }
 
 func createSocks5Server(appConfig *Configuration) (*socks5.Server, error) {
@@ -51,6 +61,7 @@ func createSocks5Server(appConfig *Configuration) (*socks5.Server, error) {
 			rules:            appConfig.Rules,
 			defaultForwarder: *appConfig.DefaultForwarder,
 		},
+		Logger:    log,
 		Finalizer: &LogFinalizer{},
 	}
 	return socks5.New(conf)

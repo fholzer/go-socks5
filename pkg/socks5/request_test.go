@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"log"
 	"net"
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/fholzer/go-socks5/pkg/axe"
 )
 
 type MockConn struct {
@@ -52,7 +52,7 @@ func TestRequest_Connect(t *testing.T) {
 	s := &Server{config: &Config{
 		Rules:    PermitAll(),
 		Resolver: DNSResolver{},
-		Logger:   log.New(os.Stdout, "", log.LstdFlags),
+		Logger:   axe.New(),
 	}}
 
 	// Create the connect request
@@ -73,7 +73,7 @@ func TestRequest_Connect(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err := s.handleRequest(req, resp); err != nil {
+	if _, err := s.handleRequest(req, resp); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func TestRequest_Connect_RuleFail(t *testing.T) {
 	s := &Server{config: &Config{
 		Rules:    PermitNone(),
 		Resolver: DNSResolver{},
-		Logger:   log.New(os.Stdout, "", log.LstdFlags),
+		Logger:   axe.New(),
 	}}
 
 	// Create the connect request
@@ -148,7 +148,7 @@ func TestRequest_Connect_RuleFail(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err := s.handleRequest(req, resp); !strings.Contains(err.Error(), "blocked by rules") {
+	if _, err := s.handleRequest(req, resp); !strings.Contains(err.Error(), "blocked by rules") {
 		t.Fatalf("err: %v", err)
 	}
 
