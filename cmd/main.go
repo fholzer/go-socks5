@@ -6,6 +6,13 @@ import (
 	"github.com/fholzer/go-socks5/pkg/socks5"
 )
 
+//go:generate go.exe run ../generate.go
+func printVersionInfo() {
+	w := log.Writer()
+	defer w.Close()
+	versionInfo.Print(w)
+}
+
 func createSocks5Server(appConfig *Configuration) (*socks5.Server, error) {
 	// Create a SOCKS5 server
 	conf := &socks5.Config{
@@ -21,6 +28,7 @@ func createSocks5Server(appConfig *Configuration) (*socks5.Server, error) {
 
 func main() {
 	setupLogging()
+	printVersionInfo()
 
 	appConfig, err := ParseConfig(configFileName)
 	if err != nil {
