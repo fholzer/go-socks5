@@ -8,6 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const configFileName = "config.yml"
+
 type forwarderConfig struct {
 	Type    string
 	Address string
