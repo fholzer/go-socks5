@@ -251,7 +251,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (co
 // handleBind is used to handle a connect command
 func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) (context.Context, error) {
 	// Check if this is allowed
-	s.config.Logger.Debugf("[INF] request BIND to %v", req.DestAddr)
+	s.config.Logger.Debugf("request BIND to %v", req.DestAddr)
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
 			return ctx, fmt.Errorf("Failed to send reply: %v", err)
@@ -271,7 +271,7 @@ func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) (conte
 // handleAssociate is used to handle a connect command
 func (s *Server) handleAssociate(ctx context.Context, conn conn, req *Request) (context.Context, error) {
 	// Check if this is allowed
-	s.config.Logger.Debugf("[INF] request ASSOCIATE to %v", req.DestAddr)
+	s.config.Logger.Debugf("request ASSOCIATE to %v", req.DestAddr)
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
 			return ctx, fmt.Errorf("Failed to send reply: %v", err)
